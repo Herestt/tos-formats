@@ -2,10 +2,16 @@ package com.herestt.tos.nio.formats;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.nio.ByteOrder;
+import java.nio.channels.SeekableByteChannel;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
+import java.util.TreeSet;
+
+import com.herestt.common.io.FileContent;
 
 /**
  * An interface class that wraps an {@code .ies} file so that it can be handled as a
@@ -29,6 +35,12 @@ import java.util.SortedSet;
  */
 public interface IesTable<R,C,V> extends Closeable, Iterable<Map<R, Map<C,V>>> {
 	
+	static final int TABLE_NAME_SIZE = 128;
+	static final int HEADER_SEPARATOR_SIZE = 2;
+	static final int FILE_DESCRIPTION_SIZE = 156;
+	static final int COLUMN_NAME_SIZE = 64;
+	static final int XOR_STRING_KEY = 1;
+	
 	/**
 	 * Opens a {@code .ies} file.
 	 * 
@@ -41,9 +53,58 @@ public interface IesTable<R,C,V> extends Closeable, Iterable<Map<R, Map<C,V>>> {
 	 * @return the table connected to the file.
 	 * @throws IOException - if an I/O error occurs.
 	 */
-	public static <R,C,V,T extends IesTable<R,C,V>> T open(Path path, Class<T> type) throws IOException {
-		//TODO - Herestt : implementation.
-		return null;
+	@SuppressWarnings("unchecked")
+	public static <R,C,V,T extends IesTable<R,C,V>> T open(Path path, Class<T> type) throws IOException, InstantiationException, IllegalAccessException {
+		IesTable<R, C, V> table = null;		
+		try(SeekableByteChannel sbc = Files.newByteChannel(path)) {
+			IesFileInfo fileInfo = createFileInfo(sbc);
+			SortedSet<IesFileInfo.ColumnInfo> columnsInfo = createColumnInfosSet(fileInfo, sbc);
+			table = type.newInstance();
+			table.init(path, fileInfo, columnsInfo);
+		}
+		return (T) table;
+	}
+	
+	static IesFileInfo createFileInfo(SeekableByteChannel sbc) throws IOException {
+		FileContent.access(sbc, 0);
+		FileContent.order(ByteOrder.LITTLE_ENDIAN);
+		IesFileInfo fileInfo = new IesFileInfo(
+				FileContent.read().asString(TABLE_NAME_SIZE),
+				FileContent.skip(HEADER_SEPARATOR_SIZE * 2).read().asUnsignedInt(),
+				FileContent.read().asUnsignedInt(),
+				FileContent.read().asUnsignedInt(),
+				FileContent.skip(HEADER_SEPARATOR_SIZE).read().asUnsignedShort(),
+				FileContent.read().asUnsignedShort(),
+				FileContent.read().asUnsignedShort(),
+				FileContent.read().asUnsignedShort());
+		FileContent.skip(HEADER_SEPARATOR_SIZE);
+		return fileInfo;
+	}
+	
+	static SortedSet<IesFileInfo.ColumnInfo> createColumnInfosSet(IesFileInfo fileInfo, SeekableByteChannel sbc) throws IOException {
+		SortedSet<IesFileInfo.ColumnInfo> columnsInfo = new TreeSet<>();
+		FileContent.access(sbc, FILE_DESCRIPTION_SIZE);
+		FileContent.order(ByteOrder.LITTLE_ENDIAN);
+		for(int i = 0; i < fileInfo.getColumnCount(); i++) {
+			IesFileInfo.ColumnInfo ci = new IesFileInfo.ColumnInfo(
+					FileContent.read().asXorString(COLUMN_NAME_SIZE, XOR_STRING_KEY),
+					FileContent.read().asXorString(COLUMN_NAME_SIZE, XOR_STRING_KEY),
+					toDataType(FileContent.read().asUnsignedShort()),
+					FileContent.read().asUnsignedShort(),
+					FileContent.read().asUnsignedShort(),
+					FileContent.read().asUnsignedShort());
+			columnsInfo.add(ci);
+		}
+		return columnsInfo;
+	}
+	
+	static IesDataType toDataType(int type) {
+		if(type == 0)
+			return IesDataType.NUMERIC;
+		else if(type == 1)
+			return IesDataType.STRING;
+		else
+			throw new IllegalArgumentException("This data type is not recognize.");
 	}
 	
 	/**
