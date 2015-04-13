@@ -174,7 +174,8 @@ public class IesFileInfo {
 		public String toString() {
 			return "ColumnInfo [dataType=" + dataType + ", unknownA="
 					+ unknownA + ", unknownB=" + unknownB + ", order=" + order
-					+ ", name=" + name + "]";
+					+ ", name=" + name + ", alternativeName=" + alternativeName
+					+ "]";
 		}
 	}
 }
