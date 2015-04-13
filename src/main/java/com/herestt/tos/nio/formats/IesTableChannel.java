@@ -43,8 +43,8 @@ public class IesTableChannel implements IesTable<Integer, String, String> {
 
 	@Override
 	public void close() throws IOException {
-		// TODO Auto-generated method stub
-		
+		if(sbc != null && sbc.isOpen())
+			sbc.close();
 	}
 
 	@Override
