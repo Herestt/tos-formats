@@ -1,6 +1,8 @@
 package com.herestt.tos.nio.formats;
 
 import java.io.IOException;
+import java.nio.channels.SeekableByteChannel;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.Map;
@@ -19,14 +21,24 @@ import com.herestt.tos.nio.formats.IesFileInfo.ColumnInfo;
  *
  */
 public class IesTableChannel implements IesTable<Integer, String, String> {
-
+	
+	/** The {@code .ies} file content descriptor. */
+	private IesFileInfo fileInfo;
+	
+	/** The {@code .ies} file columns descriptors. */
+	private SortedSet<ColumnInfo> columnsInfo;
+	
+	/** The channel connected to the {@code .ies} file. */
+	private SeekableByteChannel sbc;
+	
 	protected IesTableChannel() {}
 	
 	@Override
 	public void init(Path path, IesFileInfo fileInfo,
-			SortedSet<ColumnInfo> columnsInfo) {
-		// TODO Auto-generated method stub
-		
+			SortedSet<ColumnInfo> columnsInfo) throws IOException {
+		this.fileInfo = fileInfo;
+		this.columnsInfo = columnsInfo;
+		sbc = Files.newByteChannel(path);
 	}
 
 	@Override
