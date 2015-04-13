@@ -115,7 +115,7 @@ public interface IesTable<R,C,V> extends Closeable, Iterable<Map<R, Map<C,V>>> {
 	 * @param columnsInfo - the description of the each column of the table.
 	 */
 	public void init(Path path, IesFileInfo fileInfo,
-			SortedSet<IesFileInfo.ColumnInfo> columnsInfo);
+			SortedSet<IesFileInfo.ColumnInfo> columnsInfo) throws IOException;
 	
 	/**
 	 * Empties the table.
