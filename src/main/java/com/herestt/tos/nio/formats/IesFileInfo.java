@@ -159,8 +159,22 @@ public class IesFileInfo {
 
 		@Override
 		public int compareTo(ColumnInfo o) {
-			// TODO Auto-generated method stub
-			return 0;
+			if(unknownA < o.getUnknownA())
+				return -1;
+			if(unknownA > o.getUnknownA())
+				return 1;
+			if((dataType == IesDataType.STRING) && (o.getDataType() == IesDataType.NUMERIC))
+				return -1;
+			if((dataType == IesDataType.NUMERIC) && (o.getDataType() == IesDataType.STRING))
+				return 1;
+			return Integer.compare(order, o.order);
+		}
+
+		@Override
+		public String toString() {
+			return "ColumnInfo [dataType=" + dataType + ", unknownA="
+					+ unknownA + ", unknownB=" + unknownB + ", order=" + order
+					+ ", name=" + name + "]";
 		}
 	}
 }
