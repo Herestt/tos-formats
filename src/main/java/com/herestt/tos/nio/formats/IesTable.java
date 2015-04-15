@@ -11,11 +11,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.SortedSet;
-import java.util.TreeSet;
 
 import com.herestt.common.io.FileContent;
-import com.herestt.tos.nio.formats.IesFileInfo.ColumnInfo;
 
 /**
  * An interface class that wraps an {@code .ies} file so that it can be handled as a
