@@ -6,12 +6,16 @@ import java.nio.ByteOrder;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
 import com.herestt.common.io.FileContent;
+import com.herestt.tos.nio.formats.IesFileInfo.ColumnInfo;
 
 /**
  * An interface class that wraps an {@code .ies} file so that it can be handled as a
@@ -58,7 +62,7 @@ public interface IesTable<R,C,V> extends Closeable, Iterable<Map<R, Map<C,V>>> {
 		IesTable<R, C, V> table = null;		
 		try(SeekableByteChannel sbc = Files.newByteChannel(path)) {
 			IesFileInfo fileInfo = createFileInfo(sbc);
-			SortedSet<IesFileInfo.ColumnInfo> columnsInfo = createColumnInfosSet(fileInfo, sbc);
+			List<IesFileInfo.ColumnInfo> columnsInfo = createColumnInfosList(fileInfo, sbc);
 			table = type.newInstance();
 			table.init(path, fileInfo, columnsInfo);
 		}
@@ -81,8 +85,10 @@ public interface IesTable<R,C,V> extends Closeable, Iterable<Map<R, Map<C,V>>> {
 		return fileInfo;
 	}
 	
-	static SortedSet<IesFileInfo.ColumnInfo> createColumnInfosSet(IesFileInfo fileInfo, SeekableByteChannel sbc) throws IOException {
-		SortedSet<IesFileInfo.ColumnInfo> columnsInfo = new TreeSet<>();
+	static List<IesFileInfo.ColumnInfo> createColumnInfosList(IesFileInfo fileInfo, SeekableByteChannel sbc) throws IOException {
+		List<IesFileInfo.ColumnInfo> numericColumnsInfo = new ArrayList<>();
+		List<IesFileInfo.ColumnInfo> stringColumnsInfo = new ArrayList<>();
+		List<IesFileInfo.ColumnInfo> columnsInfo = new ArrayList<>();
 		FileContent.access(sbc, FILE_DESCRIPTION_SIZE);
 		FileContent.order(ByteOrder.LITTLE_ENDIAN);
 		for(int i = 0; i < fileInfo.getColumnCount(); i++) {
@@ -93,8 +99,16 @@ public interface IesTable<R,C,V> extends Closeable, Iterable<Map<R, Map<C,V>>> {
 					FileContent.read().asUnsignedShort(),
 					FileContent.read().asUnsignedShort(),
 					FileContent.read().asUnsignedShort());
-			columnsInfo.add(ci);
+			if(ci.getDataType() == IesDataType.NUMERIC)
+				numericColumnsInfo.add(ci);
+			if(ci.getDataType() == IesDataType.STRING)
+				stringColumnsInfo.add(ci);
 		}
+		Collections.sort(numericColumnsInfo);
+		Collections.sort(stringColumnsInfo);
+		columnsInfo.add(stringColumnsInfo.get(0));	// Add the 'ClassName' column.
+		columnsInfo.addAll(numericColumnsInfo);		// Add numeric columns.
+		columnsInfo.addAll(stringColumnsInfo);		// Add string columns.
 		return columnsInfo;
 	}
 	
@@ -115,7 +129,7 @@ public interface IesTable<R,C,V> extends Closeable, Iterable<Map<R, Map<C,V>>> {
 	 * @param columnsInfo - the description of the each column of the table.
 	 */
 	public void init(Path path, IesFileInfo fileInfo,
-			SortedSet<IesFileInfo.ColumnInfo> columnsInfo) throws IOException;
+			List<IesFileInfo.ColumnInfo> columnsInfo) throws IOException;
 	
 	/**
 	 * Empties the table.
