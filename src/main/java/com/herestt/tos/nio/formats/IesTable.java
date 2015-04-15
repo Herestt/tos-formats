@@ -115,7 +115,8 @@ public interface IesTable<R,C,V> extends Closeable, Iterable<Map<R, Map<C,V>>> {
 	static IesDataType toDataType(int type) {
 		if(type == 0)
 			return IesDataType.NUMERIC;
-		else if(type == 1)
+		else if(type == 1 
+				|| type == 2)
 			return IesDataType.STRING;
 		else
 			throw new IllegalArgumentException("This data type is not recognize.");
