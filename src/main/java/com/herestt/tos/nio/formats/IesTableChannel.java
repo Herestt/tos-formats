@@ -1,14 +1,17 @@
 package com.herestt.tos.nio.formats;
 
 import java.io.IOException;
+import java.nio.ByteOrder;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.SortedSet;
 
+import com.herestt.common.io.FileContent;
 import com.herestt.tos.nio.formats.IesFileInfo.ColumnInfo;
 
 /**
@@ -26,7 +29,7 @@ public class IesTableChannel implements IesTable<Integer, String, String> {
 	private IesFileInfo fileInfo;
 	
 	/** The {@code .ies} file columns descriptors. */
-	private SortedSet<ColumnInfo> columnsInfo;
+	private List<ColumnInfo> columnsInfo;
 	
 	/** The channel connected to the {@code .ies} file. */
 	private SeekableByteChannel sbc;
@@ -35,7 +38,7 @@ public class IesTableChannel implements IesTable<Integer, String, String> {
 	
 	@Override
 	public void init(Path path, IesFileInfo fileInfo,
-			SortedSet<ColumnInfo> columnsInfo) throws IOException {
+			List<ColumnInfo> columnsInfo) throws IOException {
 		this.fileInfo = fileInfo;
 		this.columnsInfo = columnsInfo;
 		sbc = Files.newByteChannel(path);
@@ -49,8 +52,7 @@ public class IesTableChannel implements IesTable<Integer, String, String> {
 
 	@Override
 	public Iterator<Map<Integer, Map<String, String>>> iterator() {
-		// TODO Auto-generated method stub
-		return null;
+		return new IteratorImpl();
 	}
 	
 	@Override
@@ -152,16 +154,57 @@ public class IesTableChannel implements IesTable<Integer, String, String> {
 	
 	private class IteratorImpl implements Iterator<Map<Integer, Map<String, String>>> {
 
+		private long currentPosition;
+		private long currentRow;
+		private Map<Integer, Map<String, String>> next;
+		
+		IteratorImpl() {
+			currentPosition = fileInfo.getFileSize() - fileInfo.getContenteSize();
+			currentRow = 0;
+		}
+		
+		private Map<Integer, Map<String, String>> process() throws IOException {
+			FileContent.access(sbc, currentPosition);
+			FileContent.order(ByteOrder.LITTLE_ENDIAN);
+			Map<Integer, Map<String, String>> row = new HashMap<>();
+			Map<String, String> columns = new HashMap<>();
+			long rowKey = FileContent.read().asUnsignedInt();
+			for(ColumnInfo ci : columnsInfo) {
+				String value;
+				if(ci.getDataType() == IesDataType.NUMERIC)
+					value = Float.toString(FileContent.read().asFloat());
+				else if(ci.getDataType() == IesDataType.STRING) {
+					int stringLength = FileContent.read().asUnsignedShort();
+					value = FileContent.read().asXorString(stringLength, XOR_STRING_KEY);
+					value = new String(value.getBytes("ISO-8859-1"), "UTF-8");			//TODO - Herestt : optimization.
+				} 
+				else
+					throw new IllegalArgumentException("Unknown data type.");
+				columns.put(ci.getName(), value);
+			}
+			FileContent.skip(fileInfo.getStringColumnCount());
+			currentPosition = sbc.position();
+			row.put((int) rowKey, columns);
+			return row;
+		}
+		
 		@Override
 		public boolean hasNext() {
-			// TODO Auto-generated method stub
-			return false;
+			if(currentRow == fileInfo.getRowCount())
+				return false;
+			try {
+				if((next = process()) == null)
+					return false;
+			} catch (IOException e) {
+				return false;
+			}
+			currentRow++;
+			return true;
 		}
 
 		@Override
 		public Map<Integer, Map<String, String>> next() {
-			// TODO Auto-generated method stub
-			return null;
+			return next;
 		}
 	}
 }
