@@ -159,14 +159,8 @@ public class IesFileInfo {
 
 		@Override
 		public int compareTo(ColumnInfo o) {
-			if(unknownA < o.getUnknownA())
-				return -1;
-			if(unknownA > o.getUnknownA())
-				return 1;
-			if((dataType == IesDataType.STRING) && (o.getDataType() == IesDataType.NUMERIC))
-				return -1;
-			if((dataType == IesDataType.NUMERIC) && (o.getDataType() == IesDataType.STRING))
-				return 1;
+			if(dataType != o.dataType)
+				throw new IllegalArgumentException("Only data of the same type can be compared.");
 			return Integer.compare(order, o.order);
 		}
 
